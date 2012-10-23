@@ -1,0 +1,27 @@
+name: scheme-interpreter
+version: 0.0.1
+cabal-version: >=1.2
+build-type: Simple
+license: AllRightsReserved
+license-file: ""
+data-dir: ""
+ 
+executable scheme-interpreter
+    build-depends: QuickCheck -any, base -any, mtl -any, parsec -any
+    main-is: Interpreter.hs
+    buildable: True
+    extensions: ExistentialQuantification
+    hs-source-dirs: src
+    other-modules: Language.Scheme.Environment
+                   Language.Scheme.Functions Language.Scheme.Types
+                   Language.Scheme.Primitives Language.Scheme.Parser
+                   Language.Scheme.Eval
+ 
+test-suite test-scheme-interpreter
+    build-depends: QuickCheck -any, base -any, mtl -any, parsec -any
+    type: exitcode-stdio-1.0
+    main-is: Interpreter.hs
+    buildable: True
+    cpp-options: -DMAIN_FUNCTION=testMain
+    extensions: ExistentialQuantification
+    hs-source-dirs: src

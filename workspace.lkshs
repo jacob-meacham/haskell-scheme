@@ -1,0 +1,18 @@
+Version of session file format:
+               1
+Time of storage:
+               "Sun Oct 21 18:25:47 Pacific Daylight Time 2012"
+Layout:        VerticalP (TerminalP {paneGroups = fromList [], paneTabs = Just TopP, currentPage = 0, detachedId = Nothing, detachedSize = Nothing}) (TerminalP {paneGroups = fromList [("Browser",HorizontalP (TerminalP {paneGroups = fromList [], paneTabs = Nothing, currentPage = 0, detachedId = Nothing, detachedSize = Nothing}) (HorizontalP (TerminalP {paneGroups = fromList [], paneTabs = Nothing, currentPage = 0, detachedId = Nothing, detachedSize = Nothing}) (TerminalP {paneGroups = fromList [("Debug",HorizontalP (TerminalP {paneGroups = fromList [], paneTabs = Nothing, currentPage = 0, detachedId = Nothing, detachedSize = Nothing}) (TerminalP {paneGroups = fromList [], paneTabs = Just TopP, currentPage = 1, detachedId = Nothing, detachedSize = Nothing}) 96)], paneTabs = Nothing, currentPage = 0, detachedId = Nothing, detachedSize = Nothing}) 261) 181)], paneTabs = Just TopP, currentPage = 0, detachedId = Nothing, detachedSize = Nothing}) 1277
+Population:    [(Just (BreakpointsSt BreakpointsState),[SplitP RightP,GroupP "Browser",SplitP BottomP,SplitP BottomP,GroupP "Debug",SplitP BottomP]),(Just (ErrorsSt ErrorsState),[SplitP LeftP]),(Just (FilesSt FilesState),[SplitP LeftP]),(Just (InfoSt (InfoState Nothing)),[SplitP RightP,GroupP "Browser",SplitP BottomP,SplitP BottomP]),(Just (LogSt LogState),[SplitP LeftP]),(Just (ModulesSt (ModulesState 200 (SystemScope,False) (Nothing,Nothing) (ExpanderState {packageExp = ([],[]), packageExpNoBlack = ([],[]), packageDExp = ([],[]), packageDExpNoBlack = ([],[]), workspaceExp = ([],[]), workspaceExpNoBlack = ([],[]), workspaceDExp = ([],[]), workspaceDExpNoBlack = ([],[]), systemExp = ([],[]), systemExpNoBlack = ([],[])}))),[SplitP RightP,GroupP "Browser",SplitP BottomP,SplitP TopP]),(Just (TraceSt TraceState),[SplitP RightP,GroupP "Browser",SplitP BottomP,SplitP BottomP,GroupP "Debug",SplitP BottomP]),(Just (VariablesSt VariablesState),[SplitP RightP,GroupP "Browser",SplitP BottomP,SplitP BottomP,GroupP "Debug",SplitP BottomP]),(Just (WorkspaceSt WorkspaceState),[SplitP RightP,GroupP "Browser",SplitP TopP]),(Just (BufferSt (BufferStateTrans "_Eval.hs" "\n" 0)),[SplitP RightP,GroupP "Browser",SplitP BottomP,SplitP BottomP,GroupP "Debug",SplitP TopP])]
+Window size:   (1600,838)
+Completion size:
+               (750,400)
+Workspace:     Just "F:\\languages\\haskell\\scheme-interpreter\\workspace.lkshw"
+Active pane:   Just "Errors"
+Toolbar visible:
+               True
+FindbarState:  (True,FindState {entryStr = "", entryHist = [], replaceStr = "", replaceHist = [], caseSensitive = False, entireWord = False, wrapAround = False, regex = False, lineNr = 1})
+Recently opened files:
+               ["F:\\languages\\haskell\\scheme-interpreter\\scheme-interpreter.cabal"]
+Recently opened workspaces:
+               []

@@ -1,0 +1,10 @@
+Version of workspace file format:
+               1
+Time of storage:
+               "Sat Oct 20 12:40:26 Pacific Daylight Time 2012"
+Name of the workspace:
+               "workspace"
+File paths of contained packages:
+               ["scheme-interpreter.cabal"]
+Maybe file path of an active package:
+               Just "scheme-interpreter.cabal"
