@@ -2,8 +2,8 @@ module Language.Scheme.Eval where
 import Control.Monad.Error
 import Data.IORef
 import Language.Scheme.Types
-import Language.Scheme.Functions
 import Language.Scheme.Environment
+import Language.Scheme.Parser
 
 eval :: Env -> LispVal -> IOThrowsError LispVal
 eval env val@(Character _) = return val
@@ -24,6 +24,8 @@ eval env (List (Atom "cond" : firstCond : rest)) = evalConditional env firstCond
 eval env (List (Atom "case" : key : firstClause : rest)) = do
                                                         keyResult <- eval env key
                                                         evalCase env key firstClause rest
+eval env (List [Atom "load", String filename]) =
+    load filename >>= liftM last . mapM (eval env)
 eval env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
 eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
 eval env (List (Atom "define" : List (Atom var : params) : body)) =
@@ -90,7 +92,7 @@ apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
 apply (IOFunc func) args = func args
 apply (Func params varargs body closure) args
-    | num params /= num args && varargs == Nothing = throwError $ NumArgs (num params) args
+    | num params /= num args && varargs == Nothing = throwError $ NumArgs ([num params]) args
     | otherwise = do
         argEnv <- (liftIO $ bindVars closure $ zip params args)
         finalEnv <- bindVarArgs varargs argEnv

@@ -1,7 +1,9 @@
 module Language.Scheme.Primitives where
+import System.IO
 import Control.Monad.Error
 import Language.Scheme.Types
 import Language.Scheme.Eval
+import Language.Scheme.Parser
 
 -- Built-in functions
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
@@ -59,7 +61,7 @@ eqv' [a, b] = do
                 case result of
                     True -> return $ Bool True
                     False -> return $ Bool False
-eqv' incorrectNum = throwError $ NumArgs 2 incorrectNum
+eqv' incorrectNum = throwError $ NumArgs [2] incorrectNum
 
 data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
@@ -78,20 +80,21 @@ equal [a, b] = do
                                                 [AnyUnpacker unpackNum, AnyUnpacker unpackString, AnyUnpacker unpackBool]
             eqvEquals <- eqv' [a, b]
             return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
-equal incorrectNum = throwError $ NumArgs 2 incorrectNum
+equal incorrectNum = throwError $ NumArgs [2] incorrectNum
 
 -- non-monadic
 -- numericBinop op params = Number $ foldl1 op $ map unpackNum params
 numericBinop :: (Int -> Int -> Int) -> [LispVal] -> ThrowsError LispVal
-numericBinop op singleVal@[_] = throwError $ NumArgs 2 singleVal
+numericBinop op singleVal@[_] = throwError $ NumArgs [2] singleVal
 numericBinop op params = mapM unpackNum params >>= return . Number . foldl1 op
 
 boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
-boolBinop unpacker op args = if length args /= 2
-                            then throwError $ NumArgs 2 args
-                            else do left <- unpacker $ args !! 0
-                                    right <- unpacker $ args !! 1
-                                    return $ Bool $ left `op` right
+boolBinop unpacker op args
+    | length args /= 2 = throwError $ NumArgs [2] args
+    | otherwise =  do
+                    left <- unpacker $ args !! 0
+                    right <- unpacker $ args !! 1
+                    return $ Bool $ left `op` right
 
 strBoolBinop = boolBinop unpackString
 numBoolBinop = boolBinop unpackNum
@@ -120,7 +123,7 @@ unpackBool notBool = throwError $ TypeMismatch "number" notBool
 
 unaryOp :: (LispVal -> LispVal) -> [LispVal] -> ThrowsError LispVal
 unaryOp func [x] = return $ func x
-unaryOp _ list = throwError $ NumArgs 1 list
+unaryOp _ list = throwError $ NumArgs [1] list
 
 isString :: LispVal -> LispVal
 isString (String _) = Bool True
@@ -150,26 +153,26 @@ builtinNot _ = Bool False
 symbolToString :: [LispVal] -> ThrowsError LispVal
 symbolToString [Atom s] = return $ String s
 symbolToString [nonAtom] = throwError $ TypeMismatch "Atom" nonAtom
-symbolToString multiList = throwError $ NumArgs 1 multiList
+symbolToString multiList = throwError $ NumArgs [1] multiList
 
 -- String primitives
 -- TODO: I should be able to use these in unaryOp
 stringToSymbol :: [LispVal] -> ThrowsError LispVal
 stringToSymbol [String s] = return $ Atom s
 stringToSymbol [nonString] = throwError $ TypeMismatch "String" nonString
-stringToSymbol multiList = throwError $ NumArgs 1 multiList
+stringToSymbol multiList = throwError $ NumArgs [1] multiList
 
 makeString :: [LispVal] -> ThrowsError LispVal
 makeString [Number num] = return $ String $ take num $ repeat ' '
 makeString [Number num, Character char] = return $ String $ take num $ repeat char
 makeString [Number num, nonCharacter] = throwError $ TypeMismatch "Character" nonCharacter
 makeString [nonNumber, _] = throwError $ TypeMismatch "Number" nonNumber
-makeString multiList = throwError $ NumArgs 2 multiList
+makeString multiList = throwError $ NumArgs [2] multiList
 
 stringLength :: [LispVal] -> ThrowsError LispVal
 stringLength [String s] = return $ Number $ length s
 stringLength [nonString] = throwError $ TypeMismatch "String" nonString
-stringLength multiList = throwError $ NumArgs 1 multiList
+stringLength multiList = throwError $ NumArgs [1] multiList
 
 stringRef :: [LispVal] -> ThrowsError LispVal
 stringRef [String s, Number n]
@@ -177,27 +180,56 @@ stringRef [String s, Number n]
             | otherwise = return $ Character $ s !! n
 stringRef [String s, nonNumber] = throwError $ TypeMismatch "Number" nonNumber
 stringRef [nonString, _] = throwError $ TypeMismatch "String" nonString
-stringRef multiList = throwError $ NumArgs 2 multiList
+stringRef multiList = throwError $ NumArgs [2] multiList
 
 -- List primitives
 car :: [LispVal] -> ThrowsError LispVal
 car [List (x:xs)] = return x
 car [DottedList (x:xs) _] = return x
 car [nonList] = throwError $ TypeMismatch "List" nonList
-car multiList = throwError $ NumArgs 1 multiList
+car multiList = throwError $ NumArgs [1] multiList
 
 cdr :: [LispVal] -> ThrowsError LispVal
 cdr [List (x:xs)] = return $ List xs
 cdr [DottedList [_] end] = return end
 cdr [DottedList (head:tail) end] = return $ DottedList tail end
 cdr [nonList] = throwError $ TypeMismatch "List" nonList
-cdr multiList = throwError $ NumArgs 1 multiList
+cdr multiList = throwError $ NumArgs [1] multiList
 
 cons :: [LispVal] -> ThrowsError LispVal
 cons [x, List []] = return $ List [x]
 cons [x, List xs] = return $ List $ x : xs
 cons [x, DottedList xs tail] = return $ DottedList (x : xs) tail
 cons [x, y] = return $ DottedList [x] y
-cons multiList = throwError $ NumArgs 2 multiList
+cons multiList = throwError $ NumArgs [2] multiList
 
 -- IO Primtives
+makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
+makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
+makePort _ [nonString] = throwError $ TypeMismatch "String" nonString
+makePort _ multiList = throwError $ NumArgs [1] multiList
+
+closePort :: [LispVal] -> IOThrowsError LispVal
+closePort [Port p] = liftIO $ hClose p >> (return $ Bool True)
+closePort _ = return $ Bool False
+
+readProc :: [LispVal] -> IOThrowsError LispVal
+readProc [Port p] = (liftIO $ hGetLine p) >>= liftThrows . readExpr
+readProc [nonPort] = throwError $ TypeMismatch "Port" nonPort
+readProc multiList = throwError $ NumArgs [1] multiList
+
+writeProc :: [LispVal] -> IOThrowsError LispVal
+writeProc [val] = writeProc [val, Port stdout]
+writeProc [val, Port p] = (liftIO $ hPrint p val) >> (return $ Bool True)
+writeProc [val, nonPort] = throwError $ TypeMismatch "Port" nonPort
+writeProc other = throwError $ NumArgs [1, 2] other
+
+readContents :: [LispVal] -> IOThrowsError LispVal
+readContents [String filename] = liftM String $ liftIO $ readFile filename
+readContents [nonString] = throwError $ TypeMismatch "String" nonString
+readContents multiList = throwError $ NumArgs [1] multiList
+
+readAll :: [LispVal] -> IOThrowsError LispVal
+readAll [String filename] = liftM String $ liftIO $ readFile filename
+readAll [nonString] = throwError $ TypeMismatch "String" nonString
+readAll multiList = throwError $ NumArgs [1] multiList

@@ -13,7 +13,7 @@ executable scheme-interpreter
     extensions: ExistentialQuantification
     hs-source-dirs: src
     other-modules: Language.Scheme.Environment
-                   Language.Scheme.Functions Language.Scheme.Types
+                   Language.Scheme.Types
                    Language.Scheme.Primitives Language.Scheme.Parser
                    Language.Scheme.Eval
  

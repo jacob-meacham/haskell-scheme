@@ -48,7 +48,7 @@ unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
 
 -- Error --
-data LispError = NumArgs Integer [LispVal]
+data LispError = NumArgs [Integer] [LispVal]
                 | TypeMismatch String LispVal
                 | Parser ParseError
                 | BadSpecialForm String LispVal
@@ -75,7 +75,7 @@ showError :: LispError -> String
 showError (UnboundVar message varname) = message ++ ": " ++ varname
 showError (BadSpecialForm message form) = message ++ ": " ++ show form
 showError (NotFunction message func) = message ++ ": " ++ show func
-showError (NumArgs expected found) = "Expected " ++ show expected
+showError (NumArgs expected found) = "Expected " ++ (map (\x -> 'a') expected)
                                     ++ " args; found values " ++ unwordsList found
 showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected
                                     ++ ", found " ++ show found
@@ -88,3 +88,6 @@ trapError action = catchError action (return . show)
 
 extractValue :: ThrowsError a -> a
 extractValue (Right val) = val
+
+test :: [Integer] -> [String]
+test x = map show x

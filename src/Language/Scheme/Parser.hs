@@ -116,3 +116,7 @@ readOrThrow parser input = case parse parser "lisp" input of
 
 readExpr = readOrThrow parseExpr
 readExprList = readOrThrow (endBy parseExpr spaces)
+
+-- Load a file and read as an expression list
+load :: String -> IOThrowsError [LispVal]
+load filename = (liftIO $ readFile filename) >>= liftThrows . readExprList
