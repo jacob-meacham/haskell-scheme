@@ -44,6 +44,7 @@ primitives = [("eqv?", eqv'),
               ("cdr", cdr),
               ("car", car)]
 
+-- IO Primitives
 ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
 ioPrimitives = [("apply", applyProc),
                 ("open-input-file", makePort ReadMode),
@@ -56,6 +57,32 @@ ioPrimitives = [("apply", applyProc),
                 ("read-contents", readContents),
                 ("read-all", readAll)]
 
+-- Helper functions for returning ThrowsError LispVals.
+
+-- (non-monadic version is) numericBinop op params = Number $ foldl1 op $ map unpackNum params
+-- Given a function that takes 2 ints and returns an int, and a list of lisp values, map the function onto the values.
+numericBinop :: (Int -> Int -> Int) -> [LispVal] -> ThrowsError LispVal
+numericBinop op singleVal@[_] = throwError $ NumArgs [2] singleVal
+numericBinop op params = mapM unpackNum params >>= return . Number . foldl1 op
+
+-- Similar to numericBinop, but returns a Bool instead of an Int.
+boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinop unpacker op args
+    | length args /= 2 = throwError $ NumArgs [2] args
+    | otherwise =  do
+                    left <- unpacker $ args !! 0
+                    right <- unpacker $ args !! 1
+                    return $ Bool $ left `op` right
+
+strBoolBinop = boolBinop unpackString
+numBoolBinop = boolBinop unpackNum
+boolBoolBinop = boolBinop unpackBool
+
+unaryOp :: (LispVal -> LispVal) -> [LispVal] -> ThrowsError LispVal
+unaryOp func [x] = return $ func x
+unaryOp _ list = throwError $ NumArgs [1] list
+
+-- Takes 2 values and returns true if the values are identical. Otherwise returns false.
 eqv' :: [LispVal] -> ThrowsError LispVal
 eqv' [a, b] = do
                 result <- eqv a b
@@ -75,6 +102,7 @@ unpackEquals a b (AnyUnpacker unpacker) = do
                                         return $ unpackA == unpackB
                                     `catchError` (const $ return False)
 
+-- Takes 2 values and returns true if the values can be coerced into each other.
 equal :: [LispVal] -> ThrowsError LispVal
 equal [a, b] = do
             primitiveEquals <- liftM or $ mapM (unpackEquals a b)
@@ -83,49 +111,7 @@ equal [a, b] = do
             return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal incorrectNum = throwError $ NumArgs [2] incorrectNum
 
--- non-monadic
--- numericBinop op params = Number $ foldl1 op $ map unpackNum params
-numericBinop :: (Int -> Int -> Int) -> [LispVal] -> ThrowsError LispVal
-numericBinop op singleVal@[_] = throwError $ NumArgs [2] singleVal
-numericBinop op params = mapM unpackNum params >>= return . Number . foldl1 op
-
-boolBinop :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
-boolBinop unpacker op args
-    | length args /= 2 = throwError $ NumArgs [2] args
-    | otherwise =  do
-                    left <- unpacker $ args !! 0
-                    right <- unpacker $ args !! 1
-                    return $ Bool $ left `op` right
-
-strBoolBinop = boolBinop unpackString
-numBoolBinop = boolBinop unpackNum
-boolBoolBinop = boolBinop unpackBool
-
-unpackString :: LispVal -> ThrowsError String
-unpackString (String val) = return val
-unpackString noString = throwError $ TypeMismatch "string" noString
-
-unpackNum :: LispVal -> ThrowsError Int
-unpackNum (Number val) = return val
-unpackNum (String val) = let parsed = reads val in
-                            if null parsed
-                            then throwError $ TypeMismatch "number" $ String val
-                            else return $ fst $ parsed !! 0
-unpackNum (List [val]) = unpackNum val
-unpackNum notNum = throwError $ TypeMismatch "number" notNum
-
-unpackNumStrict :: LispVal -> ThrowsError Int
-unpackNumStrict (Number val) = return val
-unpackNumStrict notNum = throwError $ TypeMismatch "number" notNum
-
-unpackBool :: LispVal -> ThrowsError Bool
-unpackBool (Bool b) = return b
-unpackBool notBool = throwError $ TypeMismatch "number" notBool
-
-unaryOp :: (LispVal -> LispVal) -> [LispVal] -> ThrowsError LispVal
-unaryOp func [x] = return $ func x
-unaryOp _ list = throwError $ NumArgs [1] list
-
+-- Test primitives.
 isString :: LispVal -> LispVal
 isString (String _) = Bool True
 isString _ = Bool False
@@ -147,13 +133,12 @@ isList (List _) = Bool True
 isList (DottedList _ _) = Bool True
 isList _ = Bool False
 
+-- String primitives
 symbolToString :: [LispVal] -> ThrowsError LispVal
 symbolToString [Atom s] = return $ String s
 symbolToString [nonAtom] = throwError $ TypeMismatch "Atom" nonAtom
 symbolToString multiList = throwError $ NumArgs [1] multiList
 
--- String primitives
--- TODO: I should be able to use these in unaryOp
 stringToSymbol :: [LispVal] -> ThrowsError LispVal
 stringToSymbol [String s] = return $ Atom s
 stringToSymbol [nonString] = throwError $ TypeMismatch "String" nonString
@@ -213,6 +198,7 @@ cons [x, DottedList xs tail] = return $ DottedList (x : xs) tail
 cons [x, y] = return $ DottedList [x] y
 cons multiList = throwError $ NumArgs [2] multiList
 
+-- IO Primitives
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
 makePort _ [nonString] = throwError $ TypeMismatch "String" nonString

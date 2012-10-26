@@ -5,9 +5,10 @@ import Control.Monad.Error
 import Data.IORef
 import System.IO
 
+-- Our environment is a list of tuples of the key to the value wrapped in an IORef.
 type Env = IORef [(String, IORef LispVal)]
 
--- Value --
+-- Values --
 data LispVal = Atom String
              | List [LispVal]
              | DottedList [LispVal] LispVal
@@ -17,14 +18,13 @@ data LispVal = Atom String
              | Character Char
              | Float Double
              | Port Handle
-             | Unit ()
+             | Unit () -- Returned by functions/special forms that have undefined return behavior.
              | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
              | IOFunc ([LispVal] -> IOThrowsError LispVal) -- Special type for primitives that perform IO.
              | Func {params :: [String], vararg :: (Maybe String),
                       body :: [LispVal], closure :: Env}
 
 instance Show LispVal where show = showVal
-
 showVal :: LispVal -> String
 showVal (Character c) = "\'" ++ [c] ++ "\'"
 showVal (String contents) = "\"" ++ contents ++ "\""
@@ -49,7 +49,28 @@ showVal (Func {params = args, vararg = varargs, body = body, closure = env}) =
 unwordsList :: [LispVal] -> String
 unwordsList = unwords . map showVal
 
--- Error --
+unpackString :: LispVal -> ThrowsError String
+unpackString (String val) = return val
+unpackString noString = throwError $ TypeMismatch "string" noString
+
+unpackNum :: LispVal -> ThrowsError Int
+unpackNum (Number val) = return val
+unpackNum (String val) = let parsed = reads val in
+                            if null parsed
+                            then throwError $ TypeMismatch "number" $ String val
+                            else return $ fst $ parsed !! 0
+unpackNum (List [val]) = unpackNum val
+unpackNum notNum = throwError $ TypeMismatch "number" notNum
+
+unpackNumStrict :: LispVal -> ThrowsError Int
+unpackNumStrict (Number val) = return val
+unpackNumStrict notNum = throwError $ TypeMismatch "number" notNum
+
+unpackBool :: LispVal -> ThrowsError Bool
+unpackBool (Bool b) = return b
+unpackBool notBool = throwError $ TypeMismatch "number" notBool
+
+-- Error Type --
 data LispError = NumArgs [Integer] [LispVal]
                 | TypeMismatch String LispVal
                 | Parser ParseError
@@ -63,16 +84,6 @@ instance Error LispError where
             noMsg = Default "An error has occured"
             strMsg = Default
 
-type ThrowsError = Either LispError
-type IOThrowsError = ErrorT LispError IO
-
-liftThrows :: ThrowsError a -> IOThrowsError a
-liftThrows (Left err) = throwError err
-liftThrows (Right val) = return val
-
-runIOThrows :: IOThrowsError String -> IO String
-runIOThrows action = runErrorT (trapError action) >>= return . extractValue
-
 showError :: LispError -> String
 showError (UnboundVar message varname) = message ++ ": " ++ varname
 showError (BadSpecialForm message form) = message ++ ": " ++ show form
@@ -84,12 +95,24 @@ showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected
 showError (Parser parseErr) = "Parse error at " ++ show parseErr
 showError (Default message) = message
 
+-- Our error Monads.
+type ThrowsError = Either LispError
+type IOThrowsError = ErrorT LispError IO
+
 -- Error helper functions
+-- Given a ThrowsError, lifts the value into an IOThrowsError.
+-- If the value was an error, then we just rethrow, otherwise we return into IOThrowsError.
+liftThrows :: ThrowsError a -> IOThrowsError a
+liftThrows (Left err) = throwError err
+liftThrows (Right val) = return val
+
+-- Runs the action and returns the result as an IO string.
+runIOThrows :: IOThrowsError String -> IO String
+runIOThrows action = runErrorT (trapError action) >>= return . extractValue
+
+-- Runs the action, capturing the error and converting it to a string if need be.
 trapError :: (Show e, MonadError e m) => m String -> m String
-trapError action = catchError action (return . show)
+trapError action = action `catchError` (return . show)
 
 extractValue :: ThrowsError a -> a
 extractValue (Right val) = val
-
-test :: [Integer] -> [String]
-test x = map show x
