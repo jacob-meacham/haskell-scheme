@@ -10,8 +10,8 @@ import Language.Scheme.Primitives
 
 -- Default environment
 primitiveBindings :: IO Env
-primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc PrimitiveFunc) primitives)
-                                              -- ++ map (makeFunc IOFunc) ioPrimitives))
+primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc PrimitiveFunc) primitives
+                                               ++ map (makeFunc IOFunc) ioPrimitives)
     where makeFunc constructor (var, func) = (var, constructor func)
 
 flushStr :: String -> IO ()
@@ -48,3 +48,4 @@ main = do
     case length args of
         0 -> runRepl
         otherwise -> runOne args
+

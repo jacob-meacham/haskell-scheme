@@ -25,6 +25,7 @@ primitives = [("eqv?", eqv'),
               ("<=", numBoolBinop (<=)),
               ("&&", boolBoolBinop (&&)),
               ("||", boolBoolBinop (||)),
+              ("++", stringAppend),
               ("make-string", makeString),
               ("string-length", stringLength),
               ("string-ref", stringRef),
@@ -33,7 +34,6 @@ primitives = [("eqv?", eqv'),
               ("string>?", strBoolBinop (>)),
               ("string<=?", strBoolBinop (<=)),
               ("string>=?", strBoolBinop (>=)),
-              ("not", unaryOp builtinNot),
               ("string?", unaryOp isString),
               ("symbol?", unaryOp isSymbol),
               ("boolean?", unaryOp isBoolean),
@@ -50,6 +50,7 @@ ioPrimitives = [("apply", applyProc),
                 ("open-output-file", makePort WriteMode),
                 ("close-input-port", closePort),
                 ("close-output-port", closePort),
+                ("display", display),
                 ("read", readProc),
                 ("write", writeProc),
                 ("read-contents", readContents),
@@ -146,10 +147,6 @@ isList (List _) = Bool True
 isList (DottedList _ _) = Bool True
 isList _ = Bool False
 
-builtinNot :: LispVal -> LispVal
-builtinNot (Bool b) = Bool $ not b
-builtinNot _ = Bool False
-
 symbolToString :: [LispVal] -> ThrowsError LispVal
 symbolToString [Atom s] = return $ String s
 symbolToString [nonAtom] = throwError $ TypeMismatch "Atom" nonAtom
@@ -182,6 +179,19 @@ stringRef [String s, nonNumber] = throwError $ TypeMismatch "Number" nonNumber
 stringRef [nonString, _] = throwError $ TypeMismatch "String" nonString
 stringRef multiList = throwError $ NumArgs [2] multiList
 
+stringAppend :: [LispVal] -> ThrowsError LispVal
+stringAppend [String s] = return $ String s
+stringAppend [s] = return $ String $ show s
+stringAppend (first : rest) = do
+    first_val <- case first of
+                    String s -> return $ s
+                    _ -> return $ show first
+    rest_val <- stringAppend rest
+    case rest_val of
+        String s -> return $ String $ first_val ++ s
+        other -> throwError $ TypeMismatch "string" other
+stringAppend multiList = throwError $ NumArgs [2] multiList
+
 -- List primitives
 car :: [LispVal] -> ThrowsError LispVal
 car [List (x:xs)] = return x
@@ -203,7 +213,6 @@ cons [x, DottedList xs tail] = return $ DottedList (x : xs) tail
 cons [x, y] = return $ DottedList [x] y
 cons multiList = throwError $ NumArgs [2] multiList
 
--- IO Primtives
 makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
 makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
 makePort _ [nonString] = throwError $ TypeMismatch "String" nonString
@@ -223,6 +232,10 @@ writeProc [val] = writeProc [val, Port stdout]
 writeProc [val, Port p] = (liftIO $ hPrint p val) >> (return $ Bool True)
 writeProc [val, nonPort] = throwError $ TypeMismatch "Port" nonPort
 writeProc other = throwError $ NumArgs [1, 2] other
+
+display :: [LispVal] -> IOThrowsError LispVal
+display val@[_] = writeProc val
+display other = throwError $ NumArgs [1] other
 
 readContents :: [LispVal] -> IOThrowsError LispVal
 readContents [String filename] = liftM String $ liftIO $ readFile filename

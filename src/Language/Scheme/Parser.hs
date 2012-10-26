@@ -3,13 +3,15 @@ import Numeric
 import Control.Monad
 import Control.Monad.Error
 import Text.ParserCombinators.Parsec hiding (spaces)
+import qualified Text.Parsec.Token as P
+import Text.Parsec.Language (haskellStyle)
 import Language.Scheme.Types
+
+lexer = P.makeTokenParser haskellStyle
+spaces = P.whiteSpace lexer
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
-
-spaces :: Parser ()
-spaces = skipMany1 space
 
 parseCharacter :: Parser LispVal
 parseCharacter = do
@@ -96,18 +98,21 @@ parseDottedList = do
                 return $ DottedList head tail
 
 parseExpr :: Parser LispVal
-parseExpr = parseAtom
-       <|> parseString
-       <|> try parseFloat
-       <|> try parseNumber'
-       <|> try parseBool
-       <|> try parseCharacter
-       <|> parseQuoted
-       <|> do
-            char '('
-            x <- try parseList <|> parseDottedList
-            char ')'
-            return x
+parseExpr = do
+        spaces
+        result <- parseAtom
+                   <|> parseString
+                   <|> try parseFloat
+                   <|> try parseNumber'
+                   <|> try parseBool
+                   <|> try parseCharacter
+                   <|> try parseQuoted
+                   <|> do
+                        char '('
+                        x <- try parseList <|> parseDottedList
+                        char ')'
+                        return x
+        return result
 
 readOrThrow :: Parser a -> String -> ThrowsError a
 readOrThrow parser input = case parse parser "lisp" input of
@@ -115,7 +120,7 @@ readOrThrow parser input = case parse parser "lisp" input of
     Right val -> return val
 
 readExpr = readOrThrow parseExpr
-readExprList = readOrThrow (endBy parseExpr spaces)
+readExprList = readOrThrow (endBy parseExpr (spaces <|> eof))
 
 -- Load a file and read as an expression list
 load :: String -> IOThrowsError [LispVal]

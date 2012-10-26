@@ -20,6 +20,15 @@ eval env (List [Atom "if", pred, conseq, alt]) =
         Bool False -> eval env alt
         Bool True -> eval env conseq
         _ -> throwError $ TypeMismatch "bool" pred
+eval env (List [Atom "while", pred, body]) =
+    do
+    pred_result <- eval env pred
+    case pred_result of
+        Bool False -> return $ Unit ()
+        Bool True -> do
+                    eval env body
+                    eval env $ List [Atom "while", pred, body]
+eval env (List (Atom "begin" : rest)) =  evalMultipleExpressions env rest
 eval env (List (Atom "cond" : firstCond : rest)) = evalConditional env firstCond rest
 eval env (List (Atom "case" : key : firstClause : rest)) = do
                                                         keyResult <- eval env key
@@ -43,6 +52,7 @@ eval env (List (func : args)) = do
                                 argVals <- mapM (eval env) args
                                 apply evaledFunc argVals
 eval env badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+
 
 evalConditional :: Env -> LispVal -> [LispVal] -> IOThrowsError LispVal
 evalConditional env (List (cond : exprs)) (x:xs) = do

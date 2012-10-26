@@ -17,6 +17,7 @@ data LispVal = Atom String
              | Character Char
              | Float Double
              | Port Handle
+             | Unit ()
              | PrimitiveFunc ([LispVal] -> ThrowsError LispVal)
              | IOFunc ([LispVal] -> IOThrowsError LispVal) -- Special type for primitives that perform IO.
              | Func {params :: [String], vararg :: (Maybe String),
@@ -27,6 +28,7 @@ instance Show LispVal where show = showVal
 showVal :: LispVal -> String
 showVal (Character c) = "\'" ++ [c] ++ "\'"
 showVal (String contents) = "\"" ++ contents ++ "\""
+showVal (Unit _) = "()"
 showVal (Atom name) = name
 showVal (Port _) = "<IO port>"
 showVal (Bool True) = "#t"
@@ -75,7 +77,7 @@ showError :: LispError -> String
 showError (UnboundVar message varname) = message ++ ": " ++ varname
 showError (BadSpecialForm message form) = message ++ ": " ++ show form
 showError (NotFunction message func) = message ++ ": " ++ show func
-showError (NumArgs expected found) = "Expected " ++ (map (\x -> 'a') expected)
+showError (NumArgs expected found) = "Expected " ++ (unwords $ map show expected)
                                     ++ " args; found values " ++ unwordsList found
 showError (TypeMismatch expected found) = "Invalid type: expected " ++ expected
                                     ++ ", found " ++ show found

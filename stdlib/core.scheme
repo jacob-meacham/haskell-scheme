@@ -1,0 +1,113 @@
+{- Core functions for use with the scheme interpreter -}
+
+-- Returns #f if x evaluates to #t, #t otherwise.
+(define (not x)				(if x #f #t))
+
+-- Returns #t only if obj is equivalent to the () atom.
+(define (null? obj)			(if (eqv? obj '()) #t #f))
+
+-- Returns a list of objects passed in as varags.
+(define (list . objs)		objs)
+
+-- A function that returns its paramter.
+(define (id obj)			obj)
+
+-- Takes a function and returns a lambda that flips the first two arguments passed.
+(define (flip func)			(lambda (arg1 arg2) (func arg2 arg1)))
+
+-- Take a function and the first argument, and returns a lambda with that argument applied.
+(define (curry func arg1)	(lambda (arg) (apply func (cons arg1 (list arg)))))
+
+-- Compose two function so that (compose f g) x === (f (g x))
+(define (compose f g)		(lambda (arg) (f (apply g arg))))
+
+-- Number-testing functions
+(define zero?				(curry = 0))
+(define positive?			(curry < 0)) 
+(define negative?			(curry > 0))
+(define (odd? num)			(= (mod num 2) 1))
+(define (even? num)			(= (mod num 2) 0))
+
+-- Right fold, which folds a list with the given function and returns the accumulated value.
+(define (foldr f accum list)
+	(if (null? list)
+		accum
+		(f (car list) (foldr f accum (cdr list)))))
+		
+-- Left fold, which folds a list with the given function and returns the accumulated value.
+(define (foldl f accum list)
+	(if (null? list)
+		accum
+		(foldl f (f accum (car list)) (cdr list))))
+		
+-- Fold synonyms
+(define fold foldl)
+(define reduce fold)
+
+-- Given a unary function, an initial value, and a unary predicate, iteratively applies the function to the value until the predicate is met,
+-- creating a list along the way.
+(define (unfold func init pred)
+	(if (pred init)
+		(cons (init '()))
+		(cons init (unfold func (func init) pred))))
+	
+-- Math folds
+(define (sum . list)			(fold + 0 list))
+(define (product . list)		(fold * 1 list))
+(define (and . list)			(fold && #t list))
+(define (or . list)				(fold || #f list))
+
+-- Returns the max value of the given varargs.
+(define (max first . rest)
+	(fold (lambda (old new)
+		(if (> old new)
+			old
+			new)) first rest))
+			
+-- Returns the min value of the given varargs.
+(define (min first . rest)
+	(fold (lambda (old new)
+		(if (< old new)
+			old
+			new)) first rest))
+
+-- Returns the length of the passed list.
+(define (length list)
+	(fold (lambda (x y) (+ x 1)) 0 list))
+	
+-- Returns the list flipped.
+(define (reverse list)
+	(fold (flip cons) '() list))
+	
+-- Private helper
+(define (mem-helper pred op) 
+	(lambda (acc next)
+		(if (and (not acc) (pred (op next)))
+			next
+			acc)))
+
+-- Returns true if the obj is a member of the given list, using various
+-- measures of equality (eq?, eqv? and equal?)
+(define (memq obj list)		(fold (mem-helper (curry eq? obj) id) #f list))
+(define (memv obj list)		(fold (mem-helper (curry eqv? obj) id) #f list))
+(define (member obj list)	(fold (mem-helper (curry equal? obj) id) #f list))
+
+-- ???
+(define (assq obj list)		(fold (mem-helper (curry eq? obj) car) #f list))
+(define (assv obj list)		(fold (mem-helper (curry eqv? obj) car) #f list))
+(define (assoc obj list)	(fold (mem-helper (curry equal? obj) car) #f list))
+
+-- Maps a function on each element of a list, and returns a new, modified list.
+(define (map f list) 		(foldr (lambda (x y) (cons (f x) y)) '() list))
+
+-- Filters a list such that the returned list only has elements which pass the predicate
+(define (filter pred list)
+	(foldr (lambda (cur built_list)
+		(if (pred cur)
+			(cons cur built_list)
+			built_list))
+		'() list))
+		
+-- Append
+(define (append2 a b)		(foldr cons b a))
+(define (append . lists)	(foldr append2 '() lists))
