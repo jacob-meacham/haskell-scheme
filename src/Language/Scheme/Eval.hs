@@ -66,7 +66,7 @@ evalConditional env (List (cond : exprs)) [] = do
                                         result <- eval env cond
                                         case result of
                                             Bool True -> evalMultipleExpressions env exprs
-                                            otherwise -> throwError $ Default "no conditional evaluated to true. Undefined behavior."
+                                            otherwise -> return $ Unit ()
 evalConditional env (nonList) _ = throwError $ TypeMismatch "List" nonList
 
 -- Evaluates all the expressions and returns the last.
